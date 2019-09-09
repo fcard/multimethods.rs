@@ -28,7 +28,7 @@ pub macro new_function {
 
   //-- Owned Arguments
 
-  (|$a: ident$(: $A: ty)?| $body: expr) => {
+  (|$a: tt$(: $A: ty)?| $body: expr) => {
     Function::F1(
       Function1::new_s(
         |$a$(: $A)*| $body
@@ -36,7 +36,7 @@ pub macro new_function {
     )
   },
 
-  (|$a: ident$(: $A: ty)?| -> $R: ty { $body: expr }) => {
+  (|$a: tt$(: $A: ty)?| -> $R: ty { $body: expr }) => {
     Function::F1(
       Function1::new_s(
         |$a$(: $A)*| -> $R { $body }
@@ -46,7 +46,7 @@ pub macro new_function {
 
   //-- Reference Arguments
 
-  (&|$a: ident$(: $A: ty)?| $body: expr) => {
+  (&|$a: tt$(: $A: ty)?| $body: expr) => {
     Function::F1(
       Function1::new_r(
         |$a$(: &$A)*| $body
@@ -54,7 +54,7 @@ pub macro new_function {
     )
   },
 
-  (&|$a: ident$(: $A: ty)?| -> $R: ty { $body: expr }) => {
+  (&|$a: tt$(: $A: ty)?| -> $R: ty { $body: expr }) => {
     Function::F1(
       Function1::new_r(
         |$a$(: &$A)*| -> $R { $body }
@@ -64,7 +64,7 @@ pub macro new_function {
 
   //-- Reference Arguments and Return value
 
-  (&&|$a: ident$(: $A: ty)?| -> $R: ty { $body: expr }) => {
+  (&&|$a: tt$(: $A: ty)?| -> $R: ty { $body: expr }) => {
     Function::F1R(
       Function1R::new(
         |$a$(: &$A)*| -> &$R { $body }

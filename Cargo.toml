@@ -6,3 +6,6 @@ edition = "2018"
 
 [dependencies]
 lazy_static = "1.4.0"
+multimethods_proc = { path = "multimethods_proc" }
+multimethods_helper_proc = { path = "multimethods_helper_proc" }
+

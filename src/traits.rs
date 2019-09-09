@@ -1,7 +1,7 @@
 use crate::*;
 use std::fmt::{Debug, Display, self};
 use std::ops::*;
-use std::mem;
+use std::marker::PhantomData;
 
 // CLONE
 
@@ -10,25 +10,23 @@ macro impl_common_traits(
   debug=$debug: ident;
   $($T: ty),*) {
 
-  new_generic_function! {
-    name=$clone;
-
+  #[__fmc]
+  multifunction! {
     $(
-      ref method(x: $T) -> $T {
+      pub fn $clone(x: &$T) -> $T {
         x.clone()
       }
     )*
   }
 
-  new_generic_function! {
-    name=$debug;
-
+  #[__fmc]
+  multifunction! {
     $(
-      method(x: $T) -> String {
+      pub fn $debug(x: $T) -> String {
         format!("{:?}", x)
       }
 
-      ref method(x: $T) -> String {
+      pub fn $debug(x: &$T) -> String {
         format!("{:?}", x)
       }
     )*
@@ -40,15 +38,14 @@ macro impl_display_traits(
   $($T: ty),*) {
 
 
-  new_generic_function! {
-    name=$display;
-
+  #[__fmc]
+  multifunction! {
     $(
-      method(x: $T) -> String {
+      pub fn $display(x: $T) -> String {
         format!("{}", x)
       }
 
-      ref method(x: $T) -> String {
+      pub fn $display(x: &$T) -> String {
         format!("{}", x)
       }
     )*
@@ -74,18 +71,16 @@ pub macro impl_operator_with_value($T: ty, $Trait: ident, $op: ident) {
 }
 
 pub macro impl_operator_generic_function($func: ident, $op: tt, $($T: ty),+) {
-  new_generic_function! {
-    name=$func;
-
+  #[__fmc]
+  multifunction! {
     $(
-      method(x: $T, y: $T) -> $T {
+      pub fn $func(x: $T, y: $T) -> $T {
         x $op y
       }
 
-      ref method(x: $T, y: $T) -> $T {
+      pub fn $func(x: $T, y: $T) -> $T {
         x $op y
       }
-
     )*
   }
 }
@@ -127,22 +122,20 @@ macro impl_partial_eq_trait(
   ne=$ne: ident;
   $($T: ty),*) {
 
-  new_generic_function! {
-    name=$eq;
-
+  #[__fmc]
+  multifunction! {
     $(
-      ref method(x: $T, y: $T) -> bool {
+      pub fn $eq(x: &$T, y: &$T) -> bool {
         x == y
       }
     )*
   }
 
-  new_generic_function! {
-    name=$ne;
-
+  #[__fmc]
+  multifunction! {
     $(
-      ref method(x: $T, y: $T) -> bool {
-        x != y
+      pub fn $ne(x: &$T, y: &$T) -> bool {
+        x == y
       }
     )*
   }
@@ -180,13 +173,14 @@ impl_common_traits! {
   clone=clone,
   debug=debug;
 
-  (),
+  (), (Value,),
+  (Value,Value,),
+  (Value,Value,Value),
+  (Value,Value,Value,Value),
   i8, i16, i32, i64, i128, isize,
   u8, u16, u32, u64, u128, usize,
   f32, f64, String, &'static str, bool,
-  Vec<i8>, Vec<i16>, Vec<i32>, Vec<i64>,
-  Vec<u8>, Vec<u16>, Vec<u32>, Vec<u64>,
-  Vec<&str>, Vec<String>
+  Vec<Value>
 }
 
 
@@ -223,13 +217,37 @@ impl_partial_eq_trait! {
   eq=eq;
   ne=ne;
 
-  (),
+  (), (Value,),
+  (Value,Value,),
+  (Value,Value,Value),
+  (Value,Value,Value,Value),
+  (Value,Value,Value,Value,Value),
   i8, i16, i32, i64, i128, isize,
   u8, u16, u32, u64, u128, usize,
   f32, f64, String, &'static str, bool,
-  Vec<i8>, Vec<i16>, Vec<i32>, Vec<i64>,
-  Vec<u8>, Vec<u16>, Vec<u32>, Vec<u64>,
-  Vec<&str>, Vec<String>
+  Vec<Value>
+}
+
+pub struct Type<T>(PhantomData<T>);
+
+pub fn _type<T>() -> Type<T> {
+  Type(PhantomData)
+}
+
+pub macro Type($T: ty) {
+  _type::<$T>()
+}
+
+new_generic_function! {
+  name=into;
+
+  method(_t: Type<i64>, a: i32) -> i64 {
+    i64::from(a)
+  }
+
+  method(_t: Type<i64>, a: i64) -> i64 {
+    a
+  }
 }
 
 impl Clone for Value {

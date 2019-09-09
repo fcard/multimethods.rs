@@ -15,6 +15,12 @@ pub trait FromValue: Sized {
   fn from_value(v: Value) -> Self;
 }
 
+impl FromValue for Value {
+  default fn from_value(v: Value) -> Self {
+    v
+  }
+}
+
 impl<T: 'static> FromValue for T {
   default fn from_value(v: Value) -> Self {
     *v.inner.downcast::<Self>().unwrap()

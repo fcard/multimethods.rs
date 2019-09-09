@@ -4,9 +4,11 @@ use crate::function::*;
 
 // General Helpers
 
-macro ignore_first($a:tt, $b:tt) {$b}
+macro as_value_ref_a($L: lifetime, $a: tt) { ValueRef<$L> }
 
 macro as_value_ref($a: tt) { ValueRef<'_> }
+
+macro as_value($a: tt) { Value }
 
 // Destructuring the Function Enum
 
@@ -49,32 +51,36 @@ pub macro k() {}
 // -- Constructors
 
 pub macro static_constructor($Func: ident, $name: ident;  $($arg: ident: $T: ident),*) {
-  pub fn $name<$($T),*,R,F>(func: F) -> $Func
+  impl<$($T,)* R,F> InnerFunctionStaticNew<($($T,)*),R,F> for $Func
     where
       $($T: FromValue,)*
       R: IntoValue,
       F: Fn($($T),*) -> R + 'static
   {
-    $Func::S(
-      box move |$($arg),*| {
-        func($($T::from_value($arg)),*).into_value()
-      }
-    )
+    fn new_s(func: F) -> $Func {
+      $Func::S(
+        box move |$($arg),*| {
+          func($($T::from_value($arg)),*).into_value()
+        }
+      )
+    }
   }
 }
 
-pub macro ref_constructor($Func: ident, $name: ident;  $($arg: ident: &$L: lifetime $T: ident),*) {
-  pub fn $name<$($T),*,R,F>(func: F) -> $Func
+pub macro ref_constructor($Func: ident, $name: ident;  $($arg: ident: $T: ident),*) {
+  impl<$($T,)* R,F> InnerFunctionRefNew<($($T,)*),R,F> for $Func
     where
-      $($T: for<$L> FromValueRef<$L>,)*
+      $($T: for<'a> FromValueRef<'a>,)*
       R: IntoValue,
-      F: for<$($L),*> Fn($(&$L $T),*) -> R + 'static
+      F: Fn($(&$T),*) -> R + 'static
   {
-    $Func::R(
-      box move |$($arg),*| {
-        func($($T::from_value_ref($arg)),*).into_value()
-      }
-    )
+    fn new_r(func: F) -> $Func {
+      $Func::R(
+        box move |$($arg),*| {
+          func($($T::from_value_ref($arg)),*).into_value()
+        }
+      )
+    }
   }
 }
 
@@ -89,31 +95,29 @@ pub macro static_calls(
 
   $($a: ident: $T: ident),*) {
 
-  // -- call_once
-
-  pub fn $once<$($T),*>(self, ($($a,)*): ($($T,)*)) -> Value
+  impl<$($T),*> InnerFunctionStaticCalls<($($T,)*)> for $Func
     where
       $($T: IntoValue,)*
   {
-    get_variant!($Func, self, $variant).call_once(($($a.into_value(),)*))
-  }
+    type Args = ($($T,)*);
 
-  // -- call_mut
+    // -- call_once
 
-  pub fn $mut<$($T),*>(&mut self, ($($a,)*): ($($T,)*)) -> Value
-    where
-      $($T: IntoValue,)*
-  {
-    get_variant!($Func, self, $variant).call_mut(($($a.into_value(),)*))
-  }
+    fn call_once_s(self, ($($a,)*): Self::Args) -> Value {
+      get_variant!($Func, self, $variant).call_once(($($a.into_value(),)*))
+    }
 
-  // -- call
+    // -- call_mut
 
-  pub fn $fn<$($T),*>(&self, ($($a,)*): ($($T,)*)) -> Value
-    where
-      $($T: IntoValue,)*
-  {
-    get_variant!($Func, self, $variant).call(($($a.into_value(),)*))
+    fn call_mut_s(&mut self, ($($a,)*): Self::Args) -> Value {
+      get_variant!($Func, self, $variant).call_mut(($($a.into_value(),)*))
+    }
+
+    // -- call
+
+    fn call_s(&self, ($($a,)*): Self::Args) -> Value {
+      get_variant!($Func, self, $variant).call(($($a.into_value(),)*))
+    }
   }
 }
 
@@ -127,31 +131,27 @@ pub macro ref_calls(
 
   $($a: ident: $T: ident),*) {
 
-  // -- call_once
-
-  pub fn $once<$($T),*>(self, ($($a,)*): ($(&$T,)*)) -> Value
+  impl<$($T),*> InnerFunctionRefCalls<($(&$T,)*)> for $Func
     where
       $($T: for<'a> IntoValueRef<'a>,)*
   {
-    get_variant!($Func, self, $variant).call_once(($($a.into_value_ref(),)*))
-  }
+    // -- call_once
 
-  // -- call_mut
+    fn call_once_r(self, ($($a,)*): ($(&$T,)*)) -> Value {
+      get_variant!($Func, self, $variant).call_once(($($a.into_value_ref(),)*))
+    }
 
-  pub fn $mut<$($T),*>(&mut self, ($($a,)*): ($(&$T,)*)) -> Value
-    where
-      $($T: for<'a> IntoValueRef<'a>,)*
-  {
-    get_variant!($Func, self, $variant).call_mut(($($a.into_value_ref(),)*))
-  }
+    // -- call_mut
 
-  // -- call
+    fn call_mut_r(&mut self, ($($a,)*): ($(&$T,)*)) -> Value {
+      get_variant!($Func, self, $variant).call_mut(($($a.into_value_ref(),)*))
+    }
 
-  pub fn $fn<$($T),*>(&self, ($($a,)*): ($(&$T,)*)) -> Value
-    where
-      $($T: for<'a> IntoValueRef<'a>,)*
-  {
-    get_variant!($Func, self, $variant).call(($($a.into_value_ref(),)*))
+    // -- call
+
+    fn call_r(&self, ($($a,)*): ($(&$T,)*)) -> Value {
+      get_variant!($Func, self, $variant).call(($($a.into_value_ref(),)*))
+    }
   }
 }
 
@@ -164,123 +164,95 @@ pub macro value_ref_calls(
 
   $($a: ident),*) {
 
-  // -- call_once
+  impl InnerFunctionValueRefCalls<($(as_value_ref!($a),)*)> for $Func {
+    // -- call_once
 
-  pub fn $once(self, ($($a,)*): ($(ignore_first!($a,ValueRef),)*)) -> Value {
-    get_variant!($Func, self, $variant).call_once(($($a,)*))
-  }
+    fn call_once_rr(self, ($($a,)*): ($(as_value_ref!($a),)*)) -> Value {
+      get_variant!($Func, self, $variant).call_once(($($a,)*))
+    }
 
-  // -- call_mut
+    // -- call_mut
 
-  pub fn $mut(&mut self, ($($a,)*): ($(ignore_first!($a, ValueRef),)*)) -> Value {
-    get_variant!($Func, self, $variant).call_mut(($($a,)*))
-  }
+    fn call_mut_rr(&mut self, ($($a,)*): ($(as_value_ref!($a),)*)) -> Value {
+      get_variant!($Func, self, $variant).call_mut(($($a,)*))
+    }
 
-  // -- call
+    // -- call
 
-  pub fn $fn(&self, ($($a,)*): ($(ignore_first!($a, ValueRef),)*)) -> Value {
-    get_variant!($Func, self, $variant).call(($($a,)*))
+    fn call_rr(&self, ($($a,)*): ($(as_value_ref!($a),)*)) -> Value {
+      get_variant!($Func, self, $variant).call(($($a,)*))
+    }
   }
 }
 
-pub macro impl_function {
 
-  // Function that only accepts static arguments
-  (
-    type = $Func: ident;
-    parameters   = [ $($a: ident: $T: ident),* ];
-    constructors = [ $new_s: ident ];
-    static_calls = [
-      variant = $S: ident;
-      $call_once_s: ident, $call_mut_s: ident, $call_s: ident
-    ];
-  ) => {
-    impl $Func {
-      static_constructor!($Func, $new_s; $($a: $T),*);
-      static_calls!      ($Func, $S, $call_once_s, $call_mut_s, $call_s; $($a: $T),*);
-    }
-  },
-
-  // Static and references function
-  (
-    type = $Func: ident;
-    constructors = [ $new_s: ident, $new_r: ident];
-    parameters   = [ $($a: ident: $(&$L: lifetime)? $T: ident),* ];
-    static_calls = [
-      variant = $S: ident;
-      $call_once_s: ident, $call_mut_s: ident, $call_s: ident
-    ];
-    ref_calls = [
-      variant = $R: ident;
-      $call_once_r:  ident, $call_mut_r:  ident, $call_r:  ident,
-      $call_once_rr: ident, $call_mut_rr: ident, $call_rr: ident$(,)?
-    ];
-  ) => {
-    impl $Func {
-      static_constructor!($Func, $new_s; $($a: $T),*);
-      ref_constructor!   ($Func, $new_r; $($a: $(&$L )*$T),*);
-      static_calls!      ($Func, $S, $call_once_s, $call_mut_s, $call_s; $($a: $T),*);
-      ref_calls!         ($Func, $R, $call_once_r,  $call_mut_r,  $call_r;  $($a: $T),*);
-      value_ref_calls!   ($Func, $R, $call_once_rr, $call_mut_rr, $call_rr; $($a),*);
-    }
-  }
+pub macro impl_function($Func: ident($($a: ident: $T: ident),*)) {
+  static_constructor!($Func, new_s; $($a: $T),*);
+  ref_constructor!   ($Func, new_r; $($a: $T),*);
+  static_calls!      ($Func, S, call_once_s,  call_mut_s,  call_s;  $($a: $T),*);
+  ref_calls!         ($Func, R, call_once_r,  call_mut_r,  call_r;  $($a: $T),*);
+  value_ref_calls!   ($Func, R, call_once_rr, call_mut_rr, call_rr; $($a),*);
 }
 
 
 // Functions that return references
 
-pub macro impl_ref_function(
-  type = $Func: ident;
-  constructor = $new: ident;
-  parameters  = [ $($a: ident: $T: ident),* ];
-  calls       = [ $call_once: ident, $call_mut: ident, $call: ident ]
-) {
-  impl $Func {
+pub macro impl_ref_function($Func: ident($($a: ident: $T: ident),*)) {
+  // Constructor
 
-    // Constructor
-
-    pub fn $new<$($T,)* R, F>(func: F) -> Self
-      where
-        $($T: for<'a> FromValueRef<'a> + 'static,)*
-        R: for<'a> IntoValueRef<'a> + 'static,
-        F: for<'a> Fn($(&'a $T),*) -> &'a R + 'static
-    {
+  impl<$($T,)* R,F> InnerFunctionRefReturnNew<($($T,)*),R,F> for $Func
+    where
+      $($T: for<'a> FromValueRef<'a> + 'static,)*
+      R: for<'a> IntoValueRef<'a> + 'static,
+      F: for<'a> Fn($(&'a $T),*) -> &'a R + 'static
+  {
+    fn new(func: F) -> Self {
       $Func {
         inner: box move |$($a),*| {
           func($($T::from_value_ref($a)),*).into_value_ref()
         }
       }
     }
+  }
 
-    // Calls
+  // Calls
+
+  impl<'r, $($T),*> InnerFunctionRefReturnCalls<'r, ($(&'r $T,)*)> for $Func
+    where
+      $($T: IntoValueRef<'r>,)*
+  {
+    type Args = ($(&'r $T,)*);
 
     // -- call_once
 
-    pub fn $call_once<'a, $($T),*>(self, ($($a,)*): ($(&'a $T,)*)) -> ValueRef<'a>
-      where
-        $($T: IntoValueRef<'a>,)*
-    {
+    fn call_once(self, ($($a,)*): Self::Args) -> ValueRef<'r> {
       self.inner.call_once(($($a.into_value_ref(),)*))
     }
 
     // -- call_mut
 
-    pub fn $call_mut<'a, $($T),*>(&mut self, ($($a,)*): ($(&'a $T,)*)) -> ValueRef<'a>
-      where
-        $($T: IntoValueRef<'a>,)*
-    {
+    fn call_mut(&mut self, ($($a,)*): Self::Args) -> ValueRef<'r> {
       self.inner.call_mut(($($a.into_value_ref(),)*))
     }
 
     // -- call
 
-    pub fn $call<'a, $($T),*>(&self, ($($a,)*): ($(&'a $T,)*)) -> ValueRef<'a>
-      where
-        $($T: IntoValueRef<'a>,)*
-    {
+    fn call(&self, ($($a,)*): Self::Args) -> ValueRef<'r> {
       self.inner.call(($($a.into_value_ref(),)*))
     }
   }
+}
+
+pub macro fnbox_static($($a: ident),*) {
+  Box<dyn Fn($(as_value!($a)),*) -> Value>
+}
+
+pub macro fnbox_ref($($a: ident),*) {
+  Box<dyn Fn($(as_value_ref!($a)),*) -> Value>
+}
+
+pub macro fnbox_ref_return($($a: ident),*) {
+  Box<dyn for<'a> Fn($(as_value_ref_a!('a, $a)),*) -> ValueRef<'a>>
 }
 
 // Implement Fn traits

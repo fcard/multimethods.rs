@@ -7,6 +7,10 @@
 #![feature(associated_type_defaults)]
 #![feature(never_type)]
 #![allow(non_upper_case_globals)]
+#![feature(test)]
+
+extern crate test;
+//use test::Bencher;
 
 pub mod value;
 pub use value::*;
@@ -26,63 +30,137 @@ pub use method::*;
 pub mod traits;
 pub use traits::*;
 
-new_generic_function! {
-  name=hello;
+use multimethods_proc::*;
 
-  method() -> String {
-    "Hello, world!".to_string()
+#[__fmc]
+multifunction! {
+  fn hi() -> String {
+    format!("Hi, World!")
+  }
+}
+
+#[__fmc]
+multimethods! {
+  key=HI;
+
+  fn hi(x: String) -> String {
+    format!("Hi, {}!", x)
+  }
+}
+
+new_abstract_type!(INTEGER);
+
+impl SubType for i64 {
+  const TYPE: AbstractType = INTEGER;
+}
+
+impl SubType for i32 {
+  const TYPE: AbstractType = INTEGER;
+}
+
+
+#[__fmc]
+multifunction! {
+  fn hello() -> String {
+    "Hello, World!".to_string()
   }
 
-  method(a: i32) -> i32 {
+  fn hello(a: Abstract![INTEGER]) -> String {
+    format!("INTEGER: {:?}", a)
+  }
+
+  fn hello(a: i32) -> i32 {
     a + 1
   }
 
-  method(a: i32, b: i32) -> i32 {
+  fn hello(a: i32, b: i32) -> i32 {
     a + b
   }
 
-  ref method(a: i32) -> i32 {
+  fn hello(a: &i32) -> i32 {
     a + 2
   }
 
-  ref method(s: String) -> String {
+  fn hello(a: &'static str) {
+    println!("{}", a)
+  }
+
+  fn hello(s: &String) -> String {
     let mut s2 = s.clone();
     s2.push_str(" and then...");
     s2
   }
 
-  ref return method(s: String) -> String {
+  fn hello(s: &String) -> &String {
     s
   }
 
-  method(s: String) {
+  fn hello(s: String) {
     println!("{}", s);
+  }
+
+  fn hello(a: i32, b: i32, c: i32, d: i32, e: i32) -> i32 {
+    (a + b + c + d + e)
   }
 }
 
-new_generic_function! {
-  name=debugin;
-
-  method(a: i32) -> String {
+#[__fmc]
+multifunction! {
+  fn debugin(a: i32) -> String {
     format!("{:?}", a)
   }
 
-  ref method(a: i32) -> String {
+  fn debugin(a: &i32) -> String {
     format!("{:?}", a)
   }
+}
+
+#[bench]
+fn bench_hello(b: &mut Bencher) {
+  b.iter(|| {
+    hello(1i32, 2i32)
+  });
+}
+
+#[bench]
+fn bench_debug(b: &mut Bencher) {
+  b.iter(|| {
+    debug(1i32)
+  });
+}
+
+#[inline(never)]
+fn add_i32(a: i32, b: i32) -> i32 {
+  a + b
+}
+
+#[bench]
+fn bench_format(b: &mut Bencher) {
+  let a: Box<dyn fmt::Debug> = box 1i32;
+  b.iter(|| {
+    format!("{:?}", a)
+  });
+}
+
+#[bench]
+fn bench_add(b: &mut Bencher) {
+  let x = test::black_box(1);
+  let y = test::black_box(2);
+  b.iter(|| {
+    add_i32(x, y)
+  });
 }
 
 fn main() {
   let a0: i32 = 1;
-  let a1 = "abc";
   let s = String::from("hello world!");
 
   let rr = &a0;
   let kk = rr.into_value_ref();
-  let f0 = Function1::new_r(|_i: &i32| "hello");
   println!("{:?}", debug(kk));
-  let k = new_function!(&&|a: String| -> String { a });
+  *HI;
 
+  println!("{:?}", hello(1i64));
   println!("{:?}", hello(&s));
   println!("{:?}", (hello.rr)(&s));
   println!("{}", hello(&s) == hello(&s));
@@ -90,43 +168,7 @@ fn main() {
   println!("{:?}", (1.into_value()) == (2.into_value()));
   println!("{}", eq(hello(&s).into_value_ref(), hello(&s).into_value_ref()));
   println!("{}", (hello.rr)(&s) == (hello.rr)(&s));
-
-
-
-  /*
-  println!("{:?}", String::from_value(debug((&a0).into_value_ref())));
-  println!("{:?}", a0.into_value());
-  println!("{:?}", (&a0).into_value_ref());
-  println!("{:?}", (a1).into_value());
-  println!("{:?}", i32::from_value(a0.into_value()));
-
-  let f1s   = new_function!(|x:i32| x + 1);
-  let f1r   = new_function!(&|x:i32| (*x) + 1);
-  let f2s   = new_function!(|x:i32,y:i32| x + y);
-  let f2r   = new_function!(&|x:i32,y:i32| x + y);
-
-  let f1p   = Function::F1R(Function1R::new(|s:&String| s ));
-
-  /*
-  let f2 = new_function!(|x:i32,y:i32| x + y);
-  let f3 = new_function!(|x:&i32| (*x) + 1);
-
-  let mut v: Vec<Box<dyn for<'a> FunctionTrait<'a>>> = Vec::new();
-
-
-rust dynamic type cast  v.push(unsafe { mem::transmute(f3.inner) });
-
-  let f3 = Function::new(unsafe { mem::transmute(v.pop().unwrap()) });
-  */
-
-  println!("{:?}", <&str>::from_value(f0()));
-  println!("{:?}", i32::from_value(f1s(1)));
-  println!("{:?}", i32::from_value(f1r(&2)));
-  println!("{:?}", i32::from_value(f2s(1,2)));
-  println!("{:?}", i32::from_value(f2r(&4,&6)));
-  println!("{:?}", String::from_value_ref(&f1p&(&s,)));
-  println!("{:?}", String::from_value(hello()));
-  println!("{:?}", i32::from_value(hello(3)));
-  println!("{:?}", i32::from_value(hello(&3)));
-  */
+  println!("{}", into(Type![i64], 2i32));
+  println!("hi0: {}", hi());
+  println!("hi1: {}", hi(String::from("john")));
 }

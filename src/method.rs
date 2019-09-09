@@ -9,7 +9,44 @@ use crate::types::*;
 use crate::function::*;
 use lazy_static::*;
 
-type TypeKey = (((TypeId, TypeId, TypeId, TypeId), bool), bool);
+type ConcreteTypeKey = ((TypeTuple, bool), bool);
+type AbstractTypeKey = (TypeMatchTuple, bool);
+
+type TypeKeys = (ConcreteTypeKey, AbstractTypeKey);
+
+pub trait AsTypeKey {
+  fn as_concrete_type_key(&self) -> ConcreteTypeKey;
+  fn as_abstract_type_key(&self) -> AbstractTypeKey;
+
+  fn type_keys(&self) -> TypeKeys {
+    (self.as_concrete_type_key(),
+     self.as_abstract_type_key())
+  }
+}
+
+impl<T> AsTypeKey for (&T, bool)
+  where
+    T: Types + AsTypeMatches
+{
+  fn as_concrete_type_key(&self) -> ConcreteTypeKey {
+    (self.0.types(), self.1)
+  }
+
+  fn as_abstract_type_key(&self) -> AbstractTypeKey {
+    (self.0.as_type_matches(), self.1)
+  }
+}
+
+impl AsTypeKey for TypeKeys {
+  fn as_concrete_type_key(&self) -> ConcreteTypeKey {
+    self.0.clone()
+  }
+
+  fn as_abstract_type_key(&self) -> AbstractTypeKey {
+    self.1.clone()
+  }
+}
+
 
 pub type Method = Function;
 
@@ -38,33 +75,51 @@ pub struct FunctionTable {
 }
 
 pub struct MethodTable {
-  methods: HashMap<TypeKey, Method>
+  methods: HashMap<ConcreteTypeKey, Method>,
+  abstracts: TypeMatchTree<Method>
 }
 
 unsafe impl Sync for MethodTable {}
 unsafe impl Sync for FunctionTable {}
 
+
+macro get_method($self: expr, $key: expr, $get: ident) {
+  match $self.methods.$get(&$key.as_concrete_type_key()) {
+    Some(method) => method,
+    None => {
+      let abs = $key.as_abstract_type_key();
+      unwrap_method($self.abstracts.$get(&abs.0, abs.1))
+    }
+  }
+}
+
+
 impl MethodTable {
   pub fn new() -> Self {
     MethodTable {
-      methods: HashMap::new()
+      methods: HashMap::new(),
+      abstracts: TypeMatchTree::new()
     }
   }
 
-  pub fn insert(&mut self, key: TypeKey, value: Method) {
+  pub fn insert(&mut self, key: ConcreteTypeKey, value: Method) {
     self.methods.insert(key, value);
   }
 
-  pub fn get(&self, key: TypeKey) -> &Method {
-    unwrap_method(self.methods.get(&key))
+  pub fn insert_abstract(&mut self, key: AbstractTypeKey, value: Method) {
+    self.abstracts.insert(key.0, value, key.1);
   }
 
-  pub fn get_mut(&mut self, key: TypeKey) -> &mut Method {
-    unwrap_method(self.methods.get_mut(&key))
+  pub fn get<T: AsTypeKey>(&self, key: T) -> &Method {
+    get_method!(self, key, get)
   }
 
-  pub fn remove(&mut self, key: TypeKey) -> Method {
-    unwrap_method(self.methods.remove(&key))
+  pub fn get_mut<T: AsTypeKey>(&mut self, key: T) -> &mut Method {
+    get_method!(self, key, get_mut)
+  }
+
+  pub fn remove<T: AsTypeKey>(&mut self, key: T) -> Method {
+    get_method!(self, key, remove)
   }
 }
 
@@ -95,31 +150,32 @@ impl FunctionTable {
     f(unsafe {&mut *self.functions.get()})
   }
 
+
   pub fn functions(&self) -> &HashMap<GenericFunction, MethodTable> {
     unsafe {&*self.functions.get()}
   }
 
-  pub fn remove(&self, fun: GenericFunction, types: TypeKey) -> Method {
+  pub fn remove<T: AsTypeKey>(&self, fun: GenericFunction, key: T) -> Method {
     self.with_functions_mut(
       |functions| {
-        functions.get_mut(&fun).unwrap().remove(types)
+        functions.get_mut(&fun).unwrap().remove(key)
       }
     )
   }
 
-  pub fn with_mut<R,F>(&self, fun: GenericFunction, types: TypeKey, func: F) -> R
+  pub fn with_mut<R,F>(&self, fun: GenericFunction, key: TypeKeys, func: F) -> R
     where
       F: FnOnce(&mut Method) -> R
   {
     self.with_functions_mut(
       |functions| {
-        func(functions.get_mut(&fun).unwrap().get_mut(types))
+        func(functions.get_mut(&fun).unwrap().get_mut(key))
       }
     )
   }
 
-  pub fn get(&self, fun: GenericFunction, types: TypeKey) -> &Method {
-    self.functions().get(&fun).unwrap().get(types)
+  pub fn get<T: AsTypeKey>(&self, fun: GenericFunction, key: T) -> &Method {
+    self.functions().get(&fun).unwrap().get(key)
   }
 
   pub fn new_function(&self, table: MethodTable) -> GenericFunction {
@@ -138,33 +194,33 @@ impl FunctionTable {
 
 impl<Args> FnOnce<Args> for GenericFunction
   where
-    Args: Types,
+    Args: Types + AsTypeMatches,
     Function: FnOnce<Args, Output=Value>
 {
   type Output = Value;
 
   extern "rust-call" fn call_once(self, a: Args) -> Value {
-    GENERIC_FUNCTIONS.remove(self, (a.types(), false)).call_once(a)
+    GENERIC_FUNCTIONS.remove(self, (&a, false)).call_once(a)
   }
 }
 
 impl<Args> FnMut<Args> for GenericFunction
   where
-    Args: Types,
+    Args: Types + AsTypeMatches,
     Function: FnMut<Args, Output=Value>
 {
   extern "rust-call" fn call_mut(&mut self, a: Args) -> Value {
-    GENERIC_FUNCTIONS.with_mut(*self, (a.types(), false), |method| method.call_mut(a))
+    GENERIC_FUNCTIONS.with_mut(*self, (&a, false).type_keys(), |method| method.call_mut(a))
   }
 }
 
 impl<Args> Fn<Args> for GenericFunction
   where
-    Args: Types,
+    Args: Types + AsTypeMatches,
     Function: Fn<Args, Output=Value>
 {
   extern "rust-call" fn call(&self, a: Args) -> Value {
-    GENERIC_FUNCTIONS.get(*self, (a.types(), false)).call(a)
+    GENERIC_FUNCTIONS.get(*self, (&a, false)).call(a)
   }
 }
 
@@ -175,7 +231,7 @@ impl<'a,A> FnOnce<(&'a A,)> for RefGenericFunction
   type Output = ValueRef<'a>;
 
   extern "rust-call" fn call_once(self, a: (&'a A,)) -> ValueRef<'a> {
-    GENERIC_FUNCTIONS.remove(self.id(), (a.types(), true)).r(a)
+    GENERIC_FUNCTIONS.remove(self.id(), (&a, true)).r(a)
   }
 }
 
@@ -184,7 +240,7 @@ impl<'a,A> FnMut<(&'a A,)> for RefGenericFunction
     A: 'static,
 {
   extern "rust-call" fn call_mut(&mut self, a: (&'a A,)) -> ValueRef<'a> {
-    GENERIC_FUNCTIONS.with_mut(self.id(), (a.types(), true), |method| method.r(a))
+    GENERIC_FUNCTIONS.with_mut(self.id(), (&a, true).type_keys(), |method| method.r(a))
   }
 }
 
@@ -193,7 +249,7 @@ impl<'a,A> Fn<(&'a A,)> for RefGenericFunction
     A: 'static
 {
   extern "rust-call" fn call(&self, a: (&'a A,)) -> ValueRef<'a> {
-    GENERIC_FUNCTIONS.get(self.id(), (a.types(), true)).r(a)
+    GENERIC_FUNCTIONS.get(self.id(), (&a, true)).r(a)
   }
 }
 
@@ -206,7 +262,7 @@ impl<'a,A,B> FnOnce<(&'a A, &'a B)> for RefGenericFunction
   type Output = ValueRef<'a>;
 
   extern "rust-call" fn call_once(self, a: (&'a A, &'a B)) -> ValueRef<'a> {
-    GENERIC_FUNCTIONS.remove(self.id(), (a.types(), true)).r(a)
+    GENERIC_FUNCTIONS.remove(self.id(), (&a, true)).r(a)
   }
 }
 
@@ -216,7 +272,7 @@ impl<'a,A,B> FnMut<(&'a A, &'a B)> for RefGenericFunction
     B: 'static,
 {
   extern "rust-call" fn call_mut(&mut self, a: (&'a A, &'a B)) -> ValueRef<'a> {
-    GENERIC_FUNCTIONS.with_mut(self.id(), (a.types(), true), |method| method.r(a))
+    GENERIC_FUNCTIONS.with_mut(self.id(), (&a, true).type_keys(), |method| method.r(a))
   }
 }
 
@@ -226,21 +282,71 @@ impl<'a,A,B> Fn<(&'a A, &'a B)> for RefGenericFunction
     B: 'static,
 {
   extern "rust-call" fn call(&self, a: (&'a A, &'a B)) -> ValueRef<'a> {
-    GENERIC_FUNCTIONS.get(self.id(), (a.types(), true)).r(a)
+    GENERIC_FUNCTIONS.get(self.id(), (&a, true)).r(a)
   }
 }
 
 
-pub macro tid($T: ty) {
+macro t($T: ty) {
   TypeId::of::<$T>()
 }
 
+macro ts($($T: ty),*) {
+  ($(t!($T),)*)
+}
+
 pub macro type_key {
-  ()                               => { (tid!( !), tid!( !), tid!( !), tid!( !)) },
-  ($A: ty)                         => { (tid!($A), tid!( !), tid!( !), tid!( !)) },
-  ($A: ty, $B: ty)                 => { (tid!($A), tid!($B), tid!( !), tid!( !)) },
-  ($A: ty, $B: ty, $C: ty)         => { (tid!($A), tid!($B), tid!($C), tid!( !)) },
-  ($A: ty, $B: ty, $C: ty, $D: ty) => { (tid!($A), tid!($B), tid!($C), tid!($D)) }
+  () => {
+    ts!( !, !, !, !, !, !, !, !, !, !, !, !)
+  },
+
+  ($A:ty) => {
+    ts!($A, !, !, !, !, !, !, !, !, !, !, !)
+  },
+
+  ($A:ty,$B:ty) => {
+    ts!($A,$B, !, !, !, !, !, !, !, !, !, !)
+  },
+
+  ($A:ty,$B:ty,$C:ty) => {
+    ts!($A,$B,$C, !, !, !, !, !, !, !, !, !)
+  },
+
+  ($A:ty,$B:ty,$C:ty,$D:ty) => {
+    ts!($A,$B,$C,$D, !, !, !, !, !, !, !, !)
+  },
+
+  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty) => {
+    ts!($A,$B,$C,$D,$E, !, !, !, !, !, !, !)
+  },
+
+  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty,$F:ty) => {
+    ts!($A,$B,$C,$D,$E,$F, !, !, !, !, !, !)
+  },
+
+  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty,$F:ty,$G:ty) => {
+    ts!($A,$B,$C,$D,$E,$F,$G, !, !, !, !, !)
+  },
+
+  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty,$F:ty,$G:ty,$H:ty) => {
+    ts!($A,$B,$C,$D,$E,$F,$G,$H, !, !, !, !)
+  },
+
+  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty,$F:ty,$G:ty,$H:ty,$I:ty) => {
+    ts!($A,$B,$C,$D,$E,$F,$G,$H,$I, !, !, !)
+  },
+
+  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty,$F:ty,$G:ty,$H:ty,$I:ty,$J:ty) => {
+    ts!($A,$B,$C,$D,$E,$F,$G,$H,$I,$J, !, !)
+  },
+
+  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty,$F:ty,$G:ty,$H:ty,$I:ty,$J:ty,$K:ty) => {
+    ts!($A,$B,$C,$D,$E,$F,$G,$H,$I,$J,$K, !)
+  },
+
+  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty,$F:ty,$G:ty,$H:ty,$I:ty,$J:ty,$K:ty,$L:ty) => {
+    ts!($A,$B,$C,$D,$E,$F,$G,$H,$I,$J,$K,$L)
+  },
 }
 
 pub macro new_generic_function {
@@ -268,19 +374,19 @@ pub macro new_generic_function {
 }
 
 pub macro method_def {
-  (method($($arg: ident: $T: ty),*) $(-> $R: ty)? { $block: expr }) => {
+  (method($($arg: tt: $T: ty),*) $(-> $R: ty)? { $block: expr }) => {
     new_function!(
       |$($arg: $T),*| $( -> $R)* { $block }
     )
   },
 
-  (ref method($($arg: ident: $T: ty),*) $(-> $R: ty)? { $block: expr }) => {
+  (ref method($($arg: tt: $T: ty),*) $(-> $R: ty)? { $block: expr }) => {
     new_function!(
       &|$($arg: $T),*| $( -> $R)* { $block }
     )
   },
 
-  (ref return method($($arg: ident: $T: ty),*) -> $R: ty { $block: expr }) => {
+  (ref return method($($arg: tt: $T: ty),*) -> $R: ty { $block: expr }) => {
     new_function!(
       &&|$($arg: $T),*| -> $R { $block }
     )
