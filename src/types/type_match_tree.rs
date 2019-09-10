@@ -28,7 +28,7 @@ impl<T> TypeMatchTree<T> {
   }
 
   pub fn insert(&mut self, key: TypeMatchTuple, value: T, rr: bool) {
-    insert_to_children(self.children_mut(rr), key, value);
+    insert_to_children(self.children_mut(rr), TypeMatchNode::new(key, value));
   }
 
   pub fn get<'a>(&'a self, key: &TypeMatchTuple, rr: bool) -> Option<&'a T> {
@@ -52,35 +52,42 @@ impl<T> TypeMatchNode<T> {
       children: Vec::new()
     }
   }
-
-  fn try_insert(&mut self, key: TypeMatchTuple, value: T) -> Option<(TypeMatchTuple, T)> {
-    if key == self.type_match {
-      panic!("method overwritten");
-
-    } else if matches_all(&self.type_match, &key) {
-      insert_to_children(&mut self.children, key, value);
-      None
-
-    } else {
-      Some((key, value))
-    }
-  }
 }
 
 
 fn insert_to_children<T>(
-  children: &mut Vec<TypeMatchNode<T>>, mut key: TypeMatchTuple, mut value: T) {
+  children: &mut Vec<TypeMatchNode<T>>, mut node: TypeMatchNode<T>) {
 
-  for child in children.iter_mut() {
-    if let Some((key_, value_)) = child.try_insert(key, value) {
-      key   = key_;
-      value = value_;
+  let mut swipe  = Vec::new();
+  let mut add_to = None;
 
-    } else {
-      return;
+  for i in 0..children.len() {
+    if node.type_match == children[i].type_match {
+      panic!("Method Overwritten.");
+
+    } else if matches_all(&children[i].type_match, &node.type_match) {
+      if let Some(_) = add_to {
+        panic!("Ambiguous Method.");
+
+      } else {
+        add_to = Some(i);
+      }
+    } else if matches_all(&node.type_match, &children[i].type_match) {
+      swipe.push(i);
     }
   }
-  children.push(TypeMatchNode::new(key, value));
+
+  for s in swipe.iter().rev() {
+    insert_to_children(&mut node.children, children.remove(*s));
+  }
+
+  if let Some(mut i) = add_to {
+    i -= swipe.iter().filter(|s| **s < i).count();
+    insert_to_children(&mut children[i].children, node)
+
+  } else {
+    children.push(node);
+  }
 }
 
 

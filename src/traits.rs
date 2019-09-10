@@ -253,15 +253,15 @@ impl<'a> Debug for ValueRef<'a> {
   }
 }
 
-impl Clone for Value {
-  fn clone(&self) -> Value {
-    clone(self)
-  }
-}
-
 impl<T: 'static> Debug for Type<T> {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "{}", String::from_value(debug(self)))
+  }
+}
+
+impl Clone for Value {
+  fn clone(&self) -> Value {
+    clone(self.into_value_ref())
   }
 }
 

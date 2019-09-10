@@ -1,36 +1,38 @@
 use std::any::*;
 use crate::types::*;
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TypeMatch {
   Concrete(ConcreteType),
   Abstract(AbstractType)
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ConcreteType {
   pub id: TypeId,
   pub is_ref: bool,
   pub parent: AbstractType,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct AbstractType {
+  pub name: &'static str,
   pub parent: Option<&'static AbstractType>
 }
 
 
-pub struct Top;
-
 pub const ANY: AbstractType =
-  AbstractType { parent: None };
+  AbstractType { name: "ANY", parent: None };
 
 
 pub macro new_abstract_type {
   ($($v: vis $name: ident$(: $supertype: expr)?),*$(,)?) => {
     $(
       $v const $name: AbstractType =
-        AbstractType { parent: Some(&parent_type!($($supertype)*)) };
+        AbstractType {
+          name: stringify!($name),
+          parent: Some(&parent_type!($($supertype)*))
+        };
      )*
   },
 }

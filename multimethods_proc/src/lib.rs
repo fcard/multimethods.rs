@@ -206,7 +206,7 @@ fn multimethods_impl(tokens: pm::TokenStream, fmc: bool) -> pm::TokenStream {
         (#root GENERIC_FUNCTIONS).with_functions_mut(|functions| {
           #(#defs)*
         });
-        MethodKey
+        #root MethodKey
       };
     }
   ).into()
@@ -216,14 +216,15 @@ fn method_defs<'a, I: Iterator<Item=&'a ItemFn>>(item_fns: I, fmc: bool) -> Meth
   let mut methods = Methods::new();
 
   for item_fn in item_fns {
+    let root        = root(fmc);
     let name        = item_fn.sig.ident.clone();
     let num_args    = item_fn.sig.inputs.len();
     let is_abstract = has_abstract_type(args(&item_fn.sig));
     let types       = types(args(&item_fn.sig), &item_fn.sig.output, is_abstract, fmc);
-    let closure     = create_closure(&item_fn);
+    let closure     = create_closure(&item_fn, fmc);
     let insertion   = get_insertion_function(is_abstract);
     let variant     = get_variant(num_args, &item_fn.sig.output);
-    let inner_func  = get_inner_function(num_args, &item_fn.sig.output);
+    let inner_func  = get_inner_function(num_args, &item_fn.sig.output, fmc);
     let constructor = get_inner_constructor(args(&item_fn.sig), &item_fn.sig.output);
     let inner_trait = get_inner_trait(args(&item_fn.sig), &item_fn.sig.output, fmc);
 
@@ -242,14 +243,14 @@ fn method_defs<'a, I: Iterator<Item=&'a ItemFn>>(item_fns: I, fmc: bool) -> Meth
           quote! {
             table.#insertion(
               #types,
-              Function::#variant(#inner_func::new(#closure))
+              #root Function::#variant(#inner_func::new(#closure))
             )
           }
         } else {
           quote! {
             table.#insertion(
               #types,
-              Function::#variant(<#inner_func as #inner_trait>::#constructor(#closure))
+              #root Function::#variant(<#inner_func as #inner_trait>::#constructor(#closure))
             )
           }
         }
@@ -308,26 +309,27 @@ fn types<I>(inputs: I, output: &ReturnType, is_abs: bool, fmc: bool) -> pm2::Tok
     type_matches(inputs, output, fmc)
 
   } else {
-    type_ids(inputs, output)
+    type_ids(inputs, output, fmc)
   }
 }
 
 
-fn type_ids<I>(inputs: I, output: &ReturnType) -> pm2::TokenStream
+fn type_ids<I>(inputs: I, output: &ReturnType, fmc: bool) -> pm2::TokenStream
   where
     I: Iterator<Item=FnArg>
 {
+  let root = root(fmc);
   let mut types      = Vec::new();
   let mut ref_inputs = false;
 
   for input in inputs {
     let ty = arg_type(input);
     ref_inputs = ref_inputs || is_ref(&ty);
-    types.push(quote!(<#ty>::associated_type_of()));
+    types.push(quote!(<#ty as #root TypeOf>::associated_type_of()));
   }
 
   while types.len() < 12 {
-    types.push(quote!(::std::any::TypeId::of::<!>()));
+    types.push(quote!(::std::any::TypeId::of::<#root Never>()));
   }
 
   let returns_ref = is_ref_return(output);
@@ -358,7 +360,7 @@ fn type_matches<I>(inputs: I, output: &ReturnType, fmc: bool) -> pm2::TokenStrea
   }
 
   while types.len() < 12 {
-    types.push(quote!(#type_match::Concrete(<! as #sub_type>::#assoc_type())));
+    types.push(quote!(#type_match::Concrete(<#root Never as #sub_type>::#assoc_type())));
   }
 
   let returns_ref = is_ref_return(output);
@@ -369,19 +371,26 @@ fn type_matches<I>(inputs: I, output: &ReturnType, fmc: bool) -> pm2::TokenStrea
 }
 
 
-fn create_closure(item: &ItemFn) -> pm2::TokenStream {
-  let args     = args(&item.sig);
-  let output   = &item.sig.output;
-  let outty    = return_type(output);
-  let body     = &item.block;
-  let ref_ret  = is_ref_return(&output);
-  let into_val = if ref_ret { quote!(into_value_ref) } else { quote!(into_value) };
+fn create_closure(item: &ItemFn, fmc: bool) -> pm2::TokenStream {
+  let root      = root(fmc);
+  let args      = args(&item.sig);
+  let output    = &item.sig.output;
+  let outty     = return_type(output);
+  let body      = &item.block;
+  let ref_ret   = is_ref_return(&output);
+
+  let into_val = if ref_ret {
+    quote!(#root IntoValueRef::into_value_ref)
+
+  } else {
+    quote!(#root IntoValue::into_value)
+  };
 
 
   quote! {
     |#(#args),*| {
       let __ReturnValue_MultiMethods: #outty = #body;
-      __ReturnValue_MultiMethods.#into_val()
+      #into_val(__ReturnValue_MultiMethods)
     }
   }
 }
@@ -410,10 +419,11 @@ fn get_variant(n: usize, output: &ReturnType) -> pm2::TokenStream {
   quote!(#variant)
 }
 
-fn get_inner_function(n: usize, output: &ReturnType) -> pm2::TokenStream {
+fn get_inner_function(n: usize, output: &ReturnType, fmc: bool) -> pm2::TokenStream {
+  let root = root(fmc);
   let name = format!("Function{}{}", n, ref_return_str(output));
   let function = Ident::new(&name, pm2::Span::call_site());
-  quote!(#function)
+  quote!(#root #function)
 }
 
 

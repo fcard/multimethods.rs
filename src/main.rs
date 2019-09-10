@@ -11,6 +11,8 @@
 
 extern crate test;
 
+pub type Never = !;
+
 pub mod value;
 pub use value::*;
 

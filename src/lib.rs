@@ -11,6 +11,8 @@
 
 pub use lazy_static;
 
+pub type Never = !;
+
 pub mod value;
 pub use value::*;
 
