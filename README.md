@@ -9,7 +9,7 @@ Nevertheless, contributions are very welcome!
 ## How To Use
 
 To define a new function, use the `multifunction!` macro, like so:
-```rs
+```rust
 use multimethods::multifunction;
 
 // only one function may be defined here (for now)
@@ -36,7 +36,7 @@ fn main() {
 
 Adding new methods to existing multi-functions requires the use of `multimethods!` and the specification of a named key.
 
-```rs
+```rust
 use multimethods::{multifunction, multimethods, initialize_methods};
 
 // Functions with no methods can be defined by passing a name to multifunction!
@@ -51,7 +51,7 @@ multimethods! {
     println!("Hi, Number {}!", x);
   }
 
-  pub fn HELLO(x: i32) { // Assuming HELLO has already been defined and is imported
+  pub fn HELLO(x: i32) { // Assuming HELLO has already been defined and is in scope
     println!("Hello, Number {}!", x);
   }
 }
@@ -65,7 +65,7 @@ fn main() {
 ```
 
 Currently, all the arguments of a method must either be references or values, e.g.
-```rs
+```rust
 multifunction! {
   // valid
   fn F(x: i32, y: i32) -> i32 {
@@ -86,7 +86,7 @@ multifunction! {
 
 Return values can vary between methods, but note that they will always be converted to one of `multimethods::value::Value` or `multimethods::value_ref::ValueRef<'_>`. Use `<T>::from_value(x)` to convert a `x: Value` to `T` or `<T>::from_value_ref(x)` to convert a `x: ValueRef<'a>` to a `&'a T` (for now, this will panic if `x` cannot be converted)
 
-```rs
+```rust
 use multimethods::{multifunction, FromValue};
 
 multifunction! {
@@ -109,7 +109,7 @@ fn main() {
 
 If the `traits` feature is enabled (true by default), then some of the more common traits are implemented for the `Value` type, in terms of multi-functions defined for the more common types.
 
-```rs
+```rust
 use multimethods::{multifunction, multimethods, initialize_methods, debug, clone, IntoValue};
 
 #[derive(Clone, Copy, Debug)]
@@ -157,7 +157,7 @@ fn main() {
 
 Methods that Return references requires the call to be expressed as `(FUNC.rr)(args...)`. Hopefully this won't be necessary in the future. (or I will find a nicer syntax, at least)
 
-```rs
+```rust
 multifunction! {
   pub fn SELF(x: String) -> String {
     x
@@ -179,7 +179,7 @@ fn main() {
 
 Generics are not implemented. Instead, for generic programming, you must use Julia-styled abstract types.
 
-```rs
+```rust
 use multimethods::{multifunction, Abstract, ANY, NUMBER};
 
 multifunction! {
@@ -207,7 +207,7 @@ fn main() {
 
 To define a new type, use `new_abstract_type!`, and to implement it for concrete types, use `impl_abstract_type!`. Note that types can only have one abstract parent.
 
-```rs
+```rust
 #![feature(specialization)] // required to subtype abstract types
 
 use multimethods::{multifunction, new_abstract_type, impl_abstract_type, Abstract, ANY};
@@ -254,7 +254,8 @@ fn main() {
 ```
 
 A more powerful way to implement an abstract type is to directly `impl` the `SubType` trait:
-```
+
+```rust
 #![feature(specialization)]
 use multimethods::{multifunction, AbstractType, new_abstract_type, SubType, Abstract, ANY};
 
@@ -296,5 +297,4 @@ fn main() {
 
 * A relatively minor issue, but function names with lowercase letters give a warning if `#[warn(non_upper_case_globals)]` is on.
   (See [lazy-static.rs#153](https://github.com/rust-lang-nursery/lazy-static.rs/issues/153#issue-478689023))
-
 
