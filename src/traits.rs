@@ -1,9 +1,6 @@
 use crate::*;
 use std::fmt::{Debug, Display, self};
 use std::ops::*;
-use std::marker::PhantomData;
-
-// CLONE
 
 macro impl_common_traits(
   clone=$clone: ident,
@@ -28,6 +25,16 @@ macro impl_common_traits(
 
       pub fn $debug(x: &$T) -> String {
         format!("{:?}", x)
+      }
+    )*
+
+    $(
+      pub fn $debug(_: Type<$T>) -> String {
+        stringify!($T).to_string()
+      }
+
+      pub fn $debug(_: &Type<$T>) -> String {
+        stringify!($T).to_string()
       }
     )*
   }
@@ -124,20 +131,26 @@ macro impl_partial_eq_trait(
 
   #[__fmc]
   multifunction! {
+    pub fn $eq(_: &Abstract![ANY], _: &Abstract![ANY]) -> bool {
+      false
+    }
+
     $(
       pub fn $eq(x: &$T, y: &$T) -> bool {
         x == y
+      }
+
+      pub fn $eq(_: &Type<$T>, _: &Type<$T>) -> bool {
+        true
       }
     )*
   }
 
   #[__fmc]
   multifunction! {
-    $(
-      pub fn $ne(x: &$T, y: &$T) -> bool {
-        x == y
-      }
-    )*
+    pub fn $ne(x: Abstract![ANY], y: Abstract![ANY]) -> bool {
+      !(bool::from_value(eq(x, y)))
+    }
   }
 
   $(
@@ -228,34 +241,6 @@ impl_partial_eq_trait! {
   Vec<Value>
 }
 
-pub struct Type<T>(PhantomData<T>);
-
-pub fn _type<T>() -> Type<T> {
-  Type(PhantomData)
-}
-
-pub macro Type($T: ty) {
-  _type::<$T>()
-}
-
-new_generic_function! {
-  name=into;
-
-  method(_t: Type<i64>, a: i32) -> i64 {
-    i64::from(a)
-  }
-
-  method(_t: Type<i64>, a: i64) -> i64 {
-    a
-  }
-}
-
-impl Clone for Value {
-  fn clone(&self) -> Value {
-    clone(self)
-  }
-}
-
 impl Debug for Value {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "{}", String::from_value(debug(self.into_value_ref())))
@@ -265,6 +250,18 @@ impl Debug for Value {
 impl<'a> Debug for ValueRef<'a> {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     write!(f, "{}", String::from_value(debug(*self)))
+  }
+}
+
+impl Clone for Value {
+  fn clone(&self) -> Value {
+    clone(self)
+  }
+}
+
+impl<T: 'static> Debug for Type<T> {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{}", String::from_value(debug(self)))
   }
 }
 

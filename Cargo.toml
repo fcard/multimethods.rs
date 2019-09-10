@@ -4,6 +4,15 @@ version = "0.1.0"
 authors = ["phicr <ficarde@gmail.com>"]
 edition = "2018"
 
+[lib]
+
+[features]
+default = ["traits", "conversion", "type_of"]
+traits = []
+conversion = []
+type_of = []
+
+
 [dependencies]
 lazy_static = "1.4.0"
 multimethods_proc = { path = "multimethods_proc" }

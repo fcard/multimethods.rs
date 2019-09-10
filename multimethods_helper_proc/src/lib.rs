@@ -48,7 +48,7 @@ pub fn impl_types(tokens: pm::TokenStream) -> pm::TokenStream {
         #types::ConcreteType {
           id:     ::std::any::TypeId::of::<!>(),
           is_ref: false,
-          parent: #types::TOP
+          parent: #types::ANY
         }
       }
     });
@@ -71,3 +71,4 @@ pub fn impl_types(tokens: pm::TokenStream) -> pm::TokenStream {
     }
   ).into()
 }
+

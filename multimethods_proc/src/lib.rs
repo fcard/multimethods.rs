@@ -78,36 +78,6 @@ impl syn::parse::Parse for NewGenericFunction {
 }
 
 
-/*
-#[proc_macro]
-pub fn init_multimethods(_: pm::TokenStream) -> pm::TokenStream {
-  let methods = methods();
-  let mut defs = Vec::new();
-  for (func, meths) in methods.iter() {
-    let func = Ident::new(func, pm2::Span::call_site());
-    let meths: Vec<pm2::TokenStream> = meths.iter().map(|x| x.parse().unwrap()).collect();
-    defs.push(
-      quote! {
-        pub static ref #func: GenericFunction = {
-          let mut table = MethodTable::new();
-          #(#meths;)*
-          GENERIC_FUNCTIONS.new_function(table)
-        };
-      }
-    );
-  }
-  let k =
-  quote!(
-    lazy_static::lazy_static! {
-      #(#defs)*
-    }
-  );
-  println!("{}", k);
-  k.into()
-}
-*/
-
-
 #[proc_macro_attribute]
 pub fn __fmc(_: pm::TokenStream, tokens: pm::TokenStream) -> pm::TokenStream {
   let mut iter = tokens.into_iter();
@@ -231,11 +201,12 @@ fn multimethods_impl(tokens: pm::TokenStream, fmc: bool) -> pm::TokenStream {
 
   quote!(
     #lazy_static_crate::lazy_static! {
-      #vis static ref #key: () = {
+      #vis static ref #key: #root method::MethodKey = {
         #(#inits)*
         (#root GENERIC_FUNCTIONS).with_functions_mut(|functions| {
           #(#defs)*
         });
+        MethodKey
       };
     }
   ).into()
@@ -399,12 +370,26 @@ fn type_matches<I>(inputs: I, output: &ReturnType, fmc: bool) -> pm2::TokenStrea
 
 
 fn create_closure(item: &ItemFn) -> pm2::TokenStream {
-  let args   = args(&item.sig);
-  let output = &item.sig.output;
-  let body   = &item.block;
+  let args     = args(&item.sig);
+  let output   = &item.sig.output;
+  let outty    = return_type(output);
+  let body     = &item.block;
+  let ref_ret  = is_ref_return(&output);
+  let into_val = if ref_ret { quote!(into_value_ref) } else { quote!(into_value) };
+
 
   quote! {
-    |#(#args),*| #output #body
+    |#(#args),*| {
+      let __ReturnValue_MultiMethods: #outty = #body;
+      __ReturnValue_MultiMethods.#into_val()
+    }
+  }
+}
+
+fn return_type(ty: &ReturnType) -> pm2::TokenStream {
+  match ty {
+    ReturnType::Default => quote!(()),
+    ReturnType::Type(_, ty) => quote!(#ty)
   }
 }
 
@@ -456,14 +441,14 @@ fn get_inner_trait<I>(inputs: I, output: &ReturnType, fmc: bool) -> pm2::TokenSt
   let root = root(fmc);
 
   if is_ref_return(output) {
-    quote!(#root function::inner_function::InnerFunctionRefReturnNew<_,_,_>)
+    quote!(#root function::inner_function::InnerFunctionRefReturnNew<_,_>)
 
   } else {
     let ref_inputs = inputs.map(arg_type).any(|t| is_ref(&t));
     if ref_inputs {
-      quote!(#root function::inner_function::InnerFunctionRefNew<_,_,_>)
+      quote!(#root function::inner_function::InnerFunctionRefNew<_,_>)
     } else {
-      quote!(#root function::inner_function::InnerFunctionStaticNew<_,_,_>)
+      quote!(#root function::inner_function::InnerFunctionStaticNew<_,_>)
     }
   }
 }
@@ -571,6 +556,7 @@ fn path_ends_with(p: &Path, s: &str) -> bool {
 }
 
 
+#[allow(dead_code)]
 fn arg_has_attr(f: &FnArg, attr: &str) -> bool {
   match f {
     FnArg::Typed(p) => {
@@ -585,10 +571,13 @@ fn arg_has_attr(f: &FnArg, attr: &str) -> bool {
   }
 }
 
+#[allow(dead_code)]
 fn has_ref_attr(f: &FnArg) -> bool {
   arg_has_attr(f, "ref")
 }
 
+#[allow(dead_code)]
 fn has_abs_attr(f: &FnArg) -> bool {
   arg_has_attr(f, "abs")
 }
+

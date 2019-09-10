@@ -10,7 +10,6 @@
 #![feature(test)]
 
 extern crate test;
-//use test::Bencher;
 
 pub mod value;
 pub use value::*;
@@ -30,6 +29,9 @@ pub use method::*;
 pub mod traits;
 pub use traits::*;
 
+pub mod conversion;
+pub use conversion::*;
+
 use multimethods_proc::*;
 
 #[__fmc]
@@ -47,17 +49,6 @@ multimethods! {
     format!("Hi, {}!", x)
   }
 }
-
-new_abstract_type!(INTEGER);
-
-impl SubType for i64 {
-  const TYPE: AbstractType = INTEGER;
-}
-
-impl SubType for i32 {
-  const TYPE: AbstractType = INTEGER;
-}
-
 
 #[__fmc]
 multifunction! {
@@ -152,13 +143,14 @@ fn bench_add(b: &mut Bencher) {
 }
 
 fn main() {
+  initialize_methods(&HI);
+
   let a0: i32 = 1;
   let s = String::from("hello world!");
 
   let rr = &a0;
   let kk = rr.into_value_ref();
   println!("{:?}", debug(kk));
-  *HI;
 
   println!("{:?}", hello(1i64));
   println!("{:?}", hello(&s));

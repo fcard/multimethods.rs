@@ -51,16 +51,15 @@ pub macro k() {}
 // -- Constructors
 
 pub macro static_constructor($Func: ident, $name: ident;  $($arg: ident: $T: ident),*) {
-  impl<$($T,)* R,F> InnerFunctionStaticNew<($($T,)*),R,F> for $Func
+  impl<$($T,)* F> InnerFunctionStaticNew<($($T,)*), F> for $Func
     where
       $($T: FromValue,)*
-      R: IntoValue,
-      F: Fn($($T),*) -> R + 'static
+      F: Fn($($T),*) -> Value + 'static
   {
     fn new_s(func: F) -> $Func {
       $Func::S(
         box move |$($arg),*| {
-          func($($T::from_value($arg)),*).into_value()
+          func($($T::from_value($arg)),*)
         }
       )
     }
@@ -68,16 +67,15 @@ pub macro static_constructor($Func: ident, $name: ident;  $($arg: ident: $T: ide
 }
 
 pub macro ref_constructor($Func: ident, $name: ident;  $($arg: ident: $T: ident),*) {
-  impl<$($T,)* R,F> InnerFunctionRefNew<($($T,)*),R,F> for $Func
+  impl<$($T,)* F> InnerFunctionRefNew<($($T,)*), F> for $Func
     where
       $($T: for<'a> FromValueRef<'a>,)*
-      R: IntoValue,
-      F: Fn($(&$T),*) -> R + 'static
+      F: Fn($(&$T),*) -> Value + 'static
   {
     fn new_r(func: F) -> $Func {
       $Func::R(
         box move |$($arg),*| {
-          func($($T::from_value_ref($arg)),*).into_value()
+          func($($T::from_value_ref($arg)),*)
         }
       )
     }
@@ -200,16 +198,15 @@ pub macro impl_function($Func: ident($($a: ident: $T: ident),*)) {
 pub macro impl_ref_function($Func: ident($($a: ident: $T: ident),*)) {
   // Constructor
 
-  impl<$($T,)* R,F> InnerFunctionRefReturnNew<($($T,)*),R,F> for $Func
+  impl<$($T,)* F> InnerFunctionRefReturnNew<($($T,)*), F> for $Func
     where
       $($T: for<'a> FromValueRef<'a> + 'static,)*
-      R: for<'a> IntoValueRef<'a> + 'static,
-      F: for<'a> Fn($(&'a $T),*) -> &'a R + 'static
+      F: for<'a> Fn($(&'a $T),*) -> ValueRef<'a> + 'static
   {
     fn new(func: F) -> Self {
       $Func {
         inner: box move |$($a),*| {
-          func($($T::from_value_ref($a)),*).into_value_ref()
+          func($($T::from_value_ref($a)),*)
         }
       }
     }

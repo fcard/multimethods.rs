@@ -3,15 +3,15 @@ use crate::value_ref::*;
 
 // Constructors
 
-pub trait InnerFunctionStaticNew<Args,R,F> {
+pub trait InnerFunctionStaticNew<Args,F> {
   fn new_s(func: F) -> Self;
 }
 
-pub trait InnerFunctionRefNew<Args,R,F> {
+pub trait InnerFunctionRefNew<Args,F> {
   fn new_r(func: F) -> Self;
 }
 
-pub trait InnerFunctionRefReturnNew<Args,R,F>: Sized {
+pub trait InnerFunctionRefReturnNew<Args,F>: Sized {
   fn new(func: F) -> Self;
 }
 

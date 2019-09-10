@@ -1,4 +1,3 @@
-use std::any::*;
 use std::ops::*;
 use std::collections::HashMap;
 use std::sync::{Mutex};
@@ -8,6 +7,10 @@ use crate::value_ref::*;
 use crate::types::*;
 use crate::function::*;
 use lazy_static::*;
+
+pub struct MethodKey;
+
+pub fn initialize_methods(_: &MethodKey) {}
 
 type ConcreteTypeKey = ((TypeTuple, bool), bool);
 type AbstractTypeKey = (TypeMatchTuple, bool);
@@ -287,124 +290,7 @@ impl<'a,A,B> Fn<(&'a A, &'a B)> for RefGenericFunction
 }
 
 
-macro t($T: ty) {
-  TypeId::of::<$T>()
-}
-
-macro ts($($T: ty),*) {
-  ($(t!($T),)*)
-}
-
-pub macro type_key {
-  () => {
-    ts!( !, !, !, !, !, !, !, !, !, !, !, !)
-  },
-
-  ($A:ty) => {
-    ts!($A, !, !, !, !, !, !, !, !, !, !, !)
-  },
-
-  ($A:ty,$B:ty) => {
-    ts!($A,$B, !, !, !, !, !, !, !, !, !, !)
-  },
-
-  ($A:ty,$B:ty,$C:ty) => {
-    ts!($A,$B,$C, !, !, !, !, !, !, !, !, !)
-  },
-
-  ($A:ty,$B:ty,$C:ty,$D:ty) => {
-    ts!($A,$B,$C,$D, !, !, !, !, !, !, !, !)
-  },
-
-  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty) => {
-    ts!($A,$B,$C,$D,$E, !, !, !, !, !, !, !)
-  },
-
-  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty,$F:ty) => {
-    ts!($A,$B,$C,$D,$E,$F, !, !, !, !, !, !)
-  },
-
-  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty,$F:ty,$G:ty) => {
-    ts!($A,$B,$C,$D,$E,$F,$G, !, !, !, !, !)
-  },
-
-  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty,$F:ty,$G:ty,$H:ty) => {
-    ts!($A,$B,$C,$D,$E,$F,$G,$H, !, !, !, !)
-  },
-
-  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty,$F:ty,$G:ty,$H:ty,$I:ty) => {
-    ts!($A,$B,$C,$D,$E,$F,$G,$H,$I, !, !, !)
-  },
-
-  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty,$F:ty,$G:ty,$H:ty,$I:ty,$J:ty) => {
-    ts!($A,$B,$C,$D,$E,$F,$G,$H,$I,$J, !, !)
-  },
-
-  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty,$F:ty,$G:ty,$H:ty,$I:ty,$J:ty,$K:ty) => {
-    ts!($A,$B,$C,$D,$E,$F,$G,$H,$I,$J,$K, !)
-  },
-
-  ($A:ty,$B:ty,$C:ty,$D:ty,$E:ty,$F:ty,$G:ty,$H:ty,$I:ty,$J:ty,$K:ty,$L:ty) => {
-    ts!($A,$B,$C,$D,$E,$F,$G,$H,$I,$J,$K,$L)
-  },
-}
-
-pub macro new_generic_function {
-  (name=$name: ident;
-   $(
-     $($mref: ident)+($($arg: ident: $T: ty),*)$(-> $R: ty)? $block: block
-    )*
-  ) => {
-    lazy_static! {
-      pub static ref $name: GenericFunction = {
-        let mut table = MethodTable::new();
-        $(
-          let method: Method =
-            method_def!($($mref)*($($arg: $T),*)$(-> $R)* { $block });
-
-          let type_key =
-            ((type_key!($($T),*), is_ref!($($mref)*)), is_return_ref!($($mref)*));
-
-          table.insert(type_key, method);
-        )*
-        GENERIC_FUNCTIONS.new_function(table)
-      };
-    }
-  }
-}
-
-pub macro method_def {
-  (method($($arg: tt: $T: ty),*) $(-> $R: ty)? { $block: expr }) => {
-    new_function!(
-      |$($arg: $T),*| $( -> $R)* { $block }
-    )
-  },
-
-  (ref method($($arg: tt: $T: ty),*) $(-> $R: ty)? { $block: expr }) => {
-    new_function!(
-      &|$($arg: $T),*| $( -> $R)* { $block }
-    )
-  },
-
-  (ref return method($($arg: tt: $T: ty),*) -> $R: ty { $block: expr }) => {
-    new_function!(
-      &&|$($arg: $T),*| -> $R { $block }
-    )
-  },
-}
-
-pub macro is_ref {
-  (method)     => {false},
-  (ref method) => {true},
-  (ref return method) => {true}
-}
-
-pub macro is_return_ref {
-  (method)     => {false},
-  (ref method) => {false},
-  (ref return method) => {true}
-}
-
 lazy_static! {
   pub static ref GENERIC_FUNCTIONS: FunctionTable = FunctionTable::new();
 }
+

@@ -1,5 +1,3 @@
-use crate::function::*;
-
 pub macro new_function {
   // Zero arguments
 

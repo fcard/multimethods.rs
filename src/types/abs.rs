@@ -22,21 +22,33 @@ pub struct AbstractType {
 
 pub struct Top;
 
-pub const TOP: AbstractType =
+pub const ANY: AbstractType =
   AbstractType { parent: None };
 
 
 pub macro new_abstract_type {
-  ($v: vis $name: ident) => {
-    $v const $name: AbstractType =
-      AbstractType { parent: Some(&TOP) };
+  ($($v: vis $name: ident$(: $supertype: expr)?),*$(,)?) => {
+    $(
+      $v const $name: AbstractType =
+        AbstractType { parent: Some(&parent_type!($($supertype)*)) };
+     )*
   },
-
-  ($v: vis $name: ident: $supertype: ident) => {
-    $v const $name: AbstractType =
-      AbstractType { parent: Some(&$supertype) }
-  }
 }
+
+macro parent_type {
+  () => { ANY },
+  ($supertype: expr) => { $supertype },
+}
+
+
+pub macro impl_abstract_type($($type: ty: $abstract: expr),*$(,)?) {
+  $(
+    impl SubType for $type {
+      const TYPE: AbstractType = $abstract;
+    }
+  )*
+}
+
 
 pub macro Abstract($t: ident) {
   Value
@@ -71,7 +83,7 @@ pub trait SubType: TypeOf {
 }
 
 impl<T: TypeOf> SubType for T {
-  default const TYPE: AbstractType = TOP;
+  default const TYPE: AbstractType = ANY;
 }
 
 impl TypeMatch {

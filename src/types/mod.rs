@@ -4,10 +4,17 @@ use crate::value_ref::*;
 use multimethods_helper_proc::*;
 
 pub mod abs;
-pub mod type_match_tree;
+pub use abs::*;
 
-pub use crate::types::abs::*;
-pub use crate::types::type_match_tree::*;
+pub mod type_match_tree;
+pub use type_match_tree::*;
+
+pub mod abstract_impl;
+pub use abstract_impl::*;
+
+pub mod type_value;
+pub use type_value::*;
+
 
 pub trait TypeOf {
   fn is_ref(&self)  -> bool;
