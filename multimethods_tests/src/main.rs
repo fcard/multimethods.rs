@@ -295,57 +295,9 @@ mod readme {
   }
 }
 
-fn k(a0: i32,
-     a1: i32,
-     a2: i32,
-     a3: i32,
-     a4: i32,
-     a5: i32,
-     a6: i32,
-     a7: i32,
-     a8: i32,
-     a9: i32,
-     a10: i32,
-     a11: i32,
-     a12: i32,
-     a13: i32,
-     a14: i32,
-     a15: i32,
-     a16: i32,
-     a17: i32,
-     a18: i32,
-     a19: i32,
-     a20: i32,
-     a21: i32,
-     a22: i32,
-     a23: i32,
-     a24: i32,
-     a25: i32,
-     a26: i32,
-     a27: i32,
-     a28: i32,
-     a29: i32,
-     ) {
-
-  println!("{}", a0  + a1  + a2  + a3  + a4  + a5  + a6  + a7  + a8  + a9  + a10 + a11 + a12 + a13 + a14
-               + a15 + a16 + a17 + a18 + a19 + a20 + a21 + a22 + a23 + a24 + a25 + a26 + a27 + a28 + a29)
-}
-
-struct K;
-
-impl<A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12,A13,A14> FnOnce<(A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12,A13,A14)> for K {
-  type Output = ();
-  extern "rust-call" fn call_once(self, a: (A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12,A13,A14)) -> Self::Output {
-    ()
-  }
-}
-
-
 fn main() {
   println!("{}", F(1,2));
   println!("{:?}", type_of(F(1,2)));
   println!("{:?}", F("a",2));
-  k( 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
-    16,17,18,19,20,21,22,23,24,25,26,27,28,29,30);
 }
 
