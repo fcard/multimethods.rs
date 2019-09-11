@@ -5,13 +5,11 @@
 #![feature(trait_alias)]
 #![feature(decl_macro)]
 #![feature(associated_type_defaults)]
-#![feature(never_type)]
+#![feature(proc_macro_hygiene)]
 #![allow(non_upper_case_globals)]
 #![feature(test)]
 
 extern crate test;
-
-pub type Never = !;
 
 pub mod value;
 pub use value::*;
@@ -99,6 +97,13 @@ multifunction! {
 
 #[__fmc]
 multifunction! {
+  fn sunga(a: i32) -> i32 {
+    a + 1
+  }
+}
+
+#[__fmc]
+multifunction! {
   fn debugin(a: i32) -> String {
     format!("{:?}", a)
   }
@@ -165,4 +170,10 @@ fn main() {
   println!("{}", into(Type![i64], 2i32));
   println!("hi0: {}", hi());
   println!("hi1: {}", hi(String::from("john")));
+
+  let mut k = 0i32.into_value();
+  for _ in 0..=200_000 {
+    k = sunga(k);
+  }
+  println!("{}", k);
 }

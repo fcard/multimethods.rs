@@ -2,7 +2,7 @@ use crate::types::*;
 
 pub struct TypeMatchNode<T> {
   value: T,
-  type_match: TypeMatchTuple,
+  type_match: TypeMatches,
   children: Vec<TypeMatchNode<T>>
 }
 
@@ -27,25 +27,25 @@ impl<T> TypeMatchTree<T> {
     if rr { &mut self.children_rr } else { &mut self.children }
   }
 
-  pub fn insert(&mut self, key: TypeMatchTuple, value: T, rr: bool) {
+  pub fn insert(&mut self, key: TypeMatches, value: T, rr: bool) {
     insert_to_children(self.children_mut(rr), TypeMatchNode::new(key, value));
   }
 
-  pub fn get<'a>(&'a self, key: &TypeMatchTuple, rr: bool) -> Option<&'a T> {
+  pub fn get<'a>(&'a self, key: &TypeMatches, rr: bool) -> Option<&'a T> {
     get_from_children(self.children(rr), key)
   }
 
-  pub fn get_mut<'a>(&'a mut self, key: &TypeMatchTuple, rr: bool) -> Option<&'a mut T> {
+  pub fn get_mut<'a>(&'a mut self, key: &TypeMatches, rr: bool) -> Option<&'a mut T> {
     get_from_children_mut(self.children_mut(rr), key)
   }
 
-  pub fn remove<'a>(&'a mut self, key: &TypeMatchTuple, rr: bool) -> Option<T> {
+  pub fn remove<'a>(&'a mut self, key: &TypeMatches, rr: bool) -> Option<T> {
     remove_from_children(self.children_mut(rr), key)
   }
 }
 
 impl<T> TypeMatchNode<T> {
-  fn new(key: TypeMatchTuple, value: T) -> Self {
+  fn new(key: TypeMatches, value: T) -> Self {
     TypeMatchNode {
       value,
       type_match: key,
@@ -92,7 +92,7 @@ fn insert_to_children<T>(
 
 
 fn get_from_children<'a, T>(
-  children: &'a Vec<TypeMatchNode<T>>, key: &TypeMatchTuple) -> Option<&'a T> {
+  children: &'a Vec<TypeMatchNode<T>>, key: &TypeMatches) -> Option<&'a T> {
 
   for child in children.iter() {
     if matches_all(&child.type_match, key) {
@@ -108,7 +108,7 @@ fn get_from_children<'a, T>(
 }
 
 fn get_from_children_mut<'a, T>(
-  children: &'a mut Vec<TypeMatchNode<T>>, key: &TypeMatchTuple) -> Option<&'a mut T> {
+  children: &'a mut Vec<TypeMatchNode<T>>, key: &TypeMatches) -> Option<&'a mut T> {
 
   for child in children.iter_mut() {
     if matches_all(&child.type_match, key) {
@@ -124,7 +124,7 @@ fn get_from_children_mut<'a, T>(
 }
 
 fn remove_from_children<'a, T> (
-  children: &'a mut Vec<TypeMatchNode<T>>, key: &TypeMatchTuple) -> Option<T> {
+  children: &'a mut Vec<TypeMatchNode<T>>, key: &TypeMatches) -> Option<T> {
 
   for i in 0..children.len() {
     if matches_all(&children[i].type_match, key) {

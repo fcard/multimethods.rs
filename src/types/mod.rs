@@ -15,6 +15,24 @@ pub use abstract_impl::*;
 pub mod type_value;
 pub use type_value::*;
 
+type TI = TypeId;
+#[derive(Debug,Clone,PartialEq,Eq,Hash)]
+pub enum TypeIds {
+  T0(),
+  T1(TI),
+  T2(TI,TI),
+  T3(TI,TI,TI),
+  T4(TI,TI,TI,TI),
+  T5(TI,TI,TI,TI,TI),
+  T6(TI,TI,TI,TI,TI,TI),
+  T7(TI,TI,TI,TI,TI,TI,TI),
+  T8(TI,TI,TI,TI,TI,TI,TI,TI),
+  T9(TI,TI,TI,TI,TI,TI,TI,TI,TI),
+  T10(TI,TI,TI,TI,TI,TI,TI,TI,TI,TI),
+  T11(TI,TI,TI,TI,TI,TI,TI,TI,TI,TI,TI),
+  T12(TI,TI,TI,TI,TI,TI,TI,TI,TI,TI,TI,TI),
+}
+
 
 pub trait TypeOf {
   fn is_ref(&self)  -> bool;
@@ -102,10 +120,10 @@ pub type TypeTuple =
    TypeId, TypeId, TypeId, TypeId);
 
 pub trait Types {
-  fn type_tuple(&self) -> TypeTuple;
+  fn type_tuple(&self) -> TypeIds;
   fn has_ref(&self) -> bool;
 
-  fn types(&self) -> (TypeTuple, bool) {
+  fn types(&self) -> (TypeIds, bool) {
     (self.type_tuple(), self.has_ref())
   }
 
