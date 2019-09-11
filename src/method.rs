@@ -12,8 +12,8 @@ pub struct MethodKey;
 
 pub fn initialize_methods(_: &MethodKey) {}
 
-type ConcreteTypeKey = ((TypeTuple, bool), bool);
-type AbstractTypeKey = (TypeMatchTuple, bool);
+type ConcreteTypeKey = ((TypeIds, bool), bool);
+type AbstractTypeKey = (TypeMatches, bool);
 
 type TypeKeys = (ConcreteTypeKey, AbstractTypeKey);
 

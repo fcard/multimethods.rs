@@ -318,7 +318,8 @@ fn type_ids<I>(inputs: I, output: &ReturnType, fmc: bool) -> pm2::TokenStream
   where
     I: Iterator<Item=FnArg>
 {
-  let root = root(fmc);
+  let root           = root(fmc);
+  let type_ids       = quote!(#root types::TypeIds);
   let mut types      = Vec::new();
   let mut ref_inputs = false;
 
@@ -328,14 +329,11 @@ fn type_ids<I>(inputs: I, output: &ReturnType, fmc: bool) -> pm2::TokenStream
     types.push(quote!(<#ty as #root TypeOf>::associated_type_of()));
   }
 
-  while types.len() < 12 {
-    types.push(quote!(::std::any::TypeId::of::<#root Never>()));
-  }
-
+  let variant = Ident::new(&format!("T{}", types.len()), pm2::Span::call_site());
   let returns_ref = is_ref_return(output);
 
   quote! {
-    (((#(#types,)*), #ref_inputs), #returns_ref)
+    ((#type_ids::#variant(#(#types),*), #ref_inputs), #returns_ref)
   }
 }
 
@@ -344,11 +342,12 @@ fn type_matches<I>(inputs: I, output: &ReturnType, fmc: bool) -> pm2::TokenStrea
   where
     I: Iterator<Item=FnArg>
 {
-  let root       = root(fmc);
-  let type_match = quote!(#root types::TypeMatch);
-  let sub_type   = quote!(#root types::SubType);
-  let assoc_type = quote!(associated_concrete_type);
-  let mut types  = Vec::new();
+  let root         = root(fmc);
+  let type_match   = quote!(#root types::TypeMatch);
+  let type_matches = quote!(#root types::TypeMatches);
+  let sub_type     = quote!(#root types::SubType);
+  let assoc_type   = quote!(associated_concrete_type);
+  let mut types    = Vec::new();
 
   for input in inputs {
     let ty = arg_type(input);
@@ -359,14 +358,11 @@ fn type_matches<I>(inputs: I, output: &ReturnType, fmc: bool) -> pm2::TokenStrea
     }
   }
 
-  while types.len() < 12 {
-    types.push(quote!(#type_match::Concrete(<#root Never as #sub_type>::#assoc_type())));
-  }
-
+  let variant = Ident::new(&format!("T{}", types.len()), pm2::Span::call_site());
   let returns_ref = is_ref_return(output);
 
   quote! {
-    ((#(#types,)*), #returns_ref)
+    (#type_matches::#variant(#(#types),*), #returns_ref)
   }
 }
 

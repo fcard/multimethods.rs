@@ -5,13 +5,11 @@
 #![feature(trait_alias)]
 #![feature(decl_macro)]
 #![feature(associated_type_defaults)]
-#![feature(never_type)]
+#![feature(proc_macro_hygiene)]
 #![allow(non_upper_case_globals)]
 #![feature(test)]
 
 pub use lazy_static;
-
-pub type Never = !;
 
 pub mod value;
 pub use value::*;
