@@ -1,7 +1,12 @@
 use crate::types::*;
 
+pub enum MatchValue<T> {
+  Single(T),
+  Vararg(usize, Vec<T>)
+}
+
 pub struct TypeMatchNode<T> {
-  value: T,
+  value: MatchValue<T>,
   type_match: TypeMatches,
   children: Vec<TypeMatchNode<T>>
 }
@@ -31,6 +36,10 @@ impl<T> TypeMatchTree<T> {
     insert_to_children(self.children_mut(rr), TypeMatchNode::new(key, value));
   }
 
+  pub fn insert_vararg(&mut self, key: TypeMatches, p: usize, values: Vec<T>, rr: bool) {
+    insert_to_children(self.children_mut(rr), TypeMatchNode::new_vararg(key, p, values));
+  }
+
   pub fn get<'a>(&'a self, key: &TypeMatches, rr: bool) -> Option<&'a T> {
     get_from_children(self.children(rr), key)
   }
@@ -47,9 +56,46 @@ impl<T> TypeMatchTree<T> {
 impl<T> TypeMatchNode<T> {
   fn new(key: TypeMatches, value: T) -> Self {
     TypeMatchNode {
-      value,
+      value: MatchValue::Single(value),
       type_match: key,
       children: Vec::new()
+    }
+  }
+
+  fn new_vararg(key: TypeMatches, positionals: usize, values: Vec<T>) -> Self {
+    TypeMatchNode {
+      value: MatchValue::Vararg(positionals, values),
+      type_match: key,
+      children: Vec::new()
+    }
+  }
+}
+
+impl<T> MatchValue<T> {
+  fn get<'a>(&'a self, key: &TypeMatches) -> &'a T {
+    match self {
+      MatchValue::Single(value) => value,
+      MatchValue::Vararg(n,values) => {
+        &values[key.len() - n]
+      }
+    }
+  }
+
+  fn get_mut<'a>(&'a mut self, key: &TypeMatches) -> &'a mut T {
+    match self {
+      MatchValue::Single(value) => value,
+      MatchValue::Vararg(n,values) => {
+        &mut values[key.len() - *n]
+      }
+    }
+  }
+
+  fn remove(self, key: &TypeMatches) -> T {
+    match self {
+      MatchValue::Single(value) => value,
+      MatchValue::Vararg(n, mut values) => {
+        values.remove(key.len() - n)
+      }
     }
   }
 }
@@ -100,7 +146,7 @@ fn get_from_children<'a, T>(
         return Some(value);
 
       } else {
-        return Some(&child.value);
+        return Some(child.value.get(key));
       }
     }
   }
@@ -116,7 +162,7 @@ fn get_from_children_mut<'a, T>(
         return Some(value)
 
       } else {
-        return Some(&mut child.value)
+        return Some(child.value.get_mut(key))
       }
     }
   }
@@ -134,7 +180,7 @@ fn remove_from_children<'a, T> (
       } else {
         let mut m = children.remove(i);
         children.append(&mut m.children);
-        return Some(m.value);
+        return Some(m.value.remove(key));
       }
     }
   }

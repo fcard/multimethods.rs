@@ -293,6 +293,35 @@ mod readme {
       assert_eq!(IS_MY_COLLECTION(coll2), true);
     }
   }
+
+  mod vararg {
+    use multimethods::{multifunction, FromValue};
+
+    multifunction! {
+      fn SUM(args: Vararg![i32]) -> i32 {
+        args.iter().sum()
+      }
+    }
+
+    multifunction! {
+      fn PRINT_ALL(args: Vararg![]) -> Vec<String>  {
+        let mut result = Vec::new();
+        for arg in args {
+          result.push(format!("{}", arg))
+        }
+        result
+      }
+    }
+
+    #[test]
+    fn readme_vararg() {
+      assert_eq!(SUM(1, 2, 3), 6);
+      assert_eq!(
+        <Vec<String>>::from_value(PRINT_ALL("a", 2)),
+        vec!["a".to_string(), "2".to_string()]
+      );
+    }
+  }
 }
 
 fn main() {

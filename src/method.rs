@@ -113,6 +113,10 @@ impl MethodTable {
     self.abstracts.insert(key.0, value, key.1);
   }
 
+  pub fn insert_vararg(&mut self, key: AbstractTypeKey, (p, values): (usize, Vec<Method>)) {
+    self.abstracts.insert_vararg(key.0, p, values, key.1);
+  }
+
   pub fn get<T: AsTypeKey>(&self, key: T) -> &Method {
     get_method!(self, key, get)
   }

@@ -36,6 +36,29 @@ use multimethods_proc::*;
 
 #[__fmc]
 multifunction! {
+  fn var(args: Vararg![i32]) {
+    for (i, arg) in args.iter().enumerate() {
+      println!("{}: {}", i, arg);
+    }
+  }
+
+  fn var(a: i64, args: Vararg![i64]) {
+    println!("a: {}", a);
+    for (i, arg) in args.iter().enumerate() {
+      println!("{}: {}", i, arg);
+    }
+  }
+
+  fn var(a: i64, args: Vararg![]) {
+    println!("ABSTRACT a: {}", a);
+    for (i, arg) in args.iter().enumerate() {
+      println!("ABSTRACT {}: {}", i, arg);
+    }
+  }
+}
+
+#[__fmc]
+multifunction! {
   fn hi() -> String {
     format!("Hi, World!")
   }
@@ -92,13 +115,6 @@ multifunction! {
 
   fn hello(a: i32, b: i32, c: i32, d: i32, e: i32) -> i32 {
     (a + b + c + d + e)
-  }
-}
-
-#[__fmc]
-multifunction! {
-  fn sunga(a: i32) -> i32 {
-    a + 1
   }
 }
 
@@ -171,9 +187,9 @@ fn main() {
   println!("hi0: {}", hi());
   println!("hi1: {}", hi(String::from("john")));
 
-  let mut k = 0i32.into_value();
-  for _ in 0..=200_000 {
-    k = sunga(k);
-  }
-  println!("{}", k);
+  var();
+  var(1);
+  var(1,2);
+  var(1i64, 2i64);
+  var(1i64, 1, 2);
 }

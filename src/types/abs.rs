@@ -52,7 +52,7 @@ pub macro impl_abstract_type($($type: ty: $abstract: expr),*$(,)?) {
 }
 
 
-pub macro Abstract($t: ident) {
+pub macro Abstract($t: path) {
   Value
 }
 
@@ -213,6 +213,28 @@ impl<T: Types> AsTypeMatches for T {
       TypeIds::T10(..) => concretes!(T10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
       TypeIds::T11(..) => concretes!(T11, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10),
       TypeIds::T12(..) => concretes!(T12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11),
+    }
+  }
+}
+
+impl TypeMatches {
+  pub fn len(&self) -> usize {
+    use TypeMatches::*;
+    match self {
+      T0()    => 0,
+      T1(..)  => 1,
+      T2(..)  => 2,
+      T3(..)  => 3,
+      T4(..)  => 4,
+      T5(..)  => 5,
+      T6(..)  => 6,
+      T7(..)  => 7,
+      T8(..)  => 8,
+      T9(..)  => 9,
+      T10(..) => 10,
+      T11(..) => 11,
+      T12(..) => 12,
+      _ => panic!("unknown size")
     }
   }
 }

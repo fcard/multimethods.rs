@@ -15,6 +15,9 @@ pub use abstract_impl::*;
 pub mod type_value;
 pub use type_value::*;
 
+pub mod vararg;
+pub use vararg::*;
+
 type TI = TypeId;
 #[derive(Debug,Clone,PartialEq,Eq,Hash)]
 pub enum TypeIds {

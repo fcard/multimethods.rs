@@ -155,7 +155,7 @@ fn main() {
 }
 ```
 
-Methods that Return references requires the call to be expressed as `(FUNC.rr)(args...)`. Hopefully this won't be necessary in the future. (or I will find a nicer syntax, at least)
+Methods that return references requires the call to be expressed as `(FUNC.rr)(args...)`. Hopefully this won't be necessary in the future. (or I will find a nicer syntax, at least)
 
 ```rust
 multifunction! {
@@ -286,6 +286,37 @@ fn main() {
   println!("{}", IS_MY_COLLECTION(coll2)); // true
 }
 ```
+
+A variadic method can be defined using the special `Vararg![T]` macro. The type of the variadic
+argument is `multimethods::types::vararg::Vararg<T>`, which can be iterated through and indexed.
+
+```rust
+// Vararg doesn't need to be imported as it's merely a marker for the multifunction! macro
+use multimethods::multifunction;
+
+multifunction! {
+  fn SUM(args: Vararg![i32]) -> i32 {
+    args.iter().sum()
+  }
+}
+
+// Vararg![] is equivalent to Vararg![Abstract![ANY]]
+multifunction! {
+  fn PRINT_ALL(args: Vararg![])  {
+    for arg in args {
+      println!("{}", arg)
+    }
+  }
+}
+
+fn main() {
+  println!("{}", SUM(1, 2, 3)); // 6
+
+  PRINT_ALL("a", 2); // a
+                     // 2
+}
+```
+
 
 ## Limitations
 
